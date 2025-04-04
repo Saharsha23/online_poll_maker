@@ -6,25 +6,29 @@ from werkzeug.security import generate_password_hash
 @pytest.fixture
 def client():
     app.config['TESTING'] = True
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@127.0.0.1:3306/POLLyverse?charset=utf8mb4'
+    app.config['WTF_CSRF_ENABLED'] = False  # Disable CSRF for testing
     
     with app.test_client() as client:
         with app.app_context():
+            # Drop all tables and recreate them
+            db.drop_all()
             db.create_all()
             yield client
             db.session.remove()
             db.drop_all()
 
 @pytest.fixture
-def test_user():
-    user = User(
-        username='testuser',
-        email='test@example.com',
-        password_hash=generate_password_hash('password123')
-    )
-    db.session.add(user)
-    db.session.commit()
-    return user
+def test_user(client):  # Add client as a dependency
+    with app.app_context():
+        user = User(
+            username='testuser',
+            email='test@example.com',
+            password_hash=generate_password_hash('password123')
+        )
+        db.session.add(user)
+        db.session.commit()
+        return user
 
 def test_landing_page_structure(client):
     """Test the structure of the landing page"""
@@ -146,7 +150,7 @@ def test_my_polls_page_structure(client, test_user):
     soup = BeautifulSoup(response.data, 'html.parser')
     
     # Check sections
-    assert soup.find('h3', string='My Created Polls') is not None
+    assert soup.find('h3', string='Polls I Created') is not None
     assert soup.find('h3', string='Polls I Voted On') is not None
     
     # Check create poll button
