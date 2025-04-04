@@ -10,6 +10,20 @@ jobs:
   test:
     runs-on: ubuntu-latest
     
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+          MYSQL_DATABASE: POLLyverse
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+    
     steps:
     - uses: actions/checkout@v3
     
@@ -31,6 +45,14 @@ jobs:
         # exit-zero treats all errors as warnings
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
         
+    - name: Wait for MySQL
+      run: |
+        while ! mysqladmin ping -h"127.0.0.1" -P"3306" --silent; do
+          sleep 1
+        done
+        
     - name: Test with pytest
       run: |
-        pytest 
+        pytest
+      env:
+        SQLALCHEMY_DATABASE_URI: mysql+pymysql://root:@127.0.0.1:3306/POLLyverse?charset=utf8mb4 
